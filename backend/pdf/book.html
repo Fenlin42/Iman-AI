@@ -1,0 +1,71 @@
+<!doctype html>
+<html lang="{{ lang }}">
+<head>
+<meta charset="utf-8">
+<title>{{ charter.title }}</title>
+<meta name="author" content="{{ author }}">
+<style>:root { --accent: {{ accent }}; --tint: {{ tint }}; }
+{{ css | safe }}</style>
+</head>
+<body>
+
+<section class="cover">
+  <div class="cover-band"></div>
+  <div class="cover-body">
+    {% if charter.reading_time %}<p class="cover-kicker">{{ charter.reading_time }}</p>{% endif %}
+    <h1 class="cover-title">{{ charter.title }}</h1>
+    <p class="cover-subtitle">{{ charter.subtitle }}</p>
+  </div>
+  <div class="cover-foot">
+    {% if author %}<p class="cover-author">{{ labels.by }} {{ author }}</p>{% endif %}
+  </div>
+</section>
+
+<section class="toc">
+  <h1 class="toc-title" data-book="{{ charter.title }}">{{ labels.toc }}</h1>
+  <ol class="toc-list">
+    {% for c in chapters %}
+    <li class="toc-chapter">
+      <a href="#{{ c.anchor }}"><span class="toc-num">{{ '%02d' % c.number }}</span><span class="toc-text">{{ c.title }}</span></a>
+      {% if c.sections %}
+      <ol class="toc-sections">
+        {% for s in c.sections %}<li><a href="#{{ s.id }}"><span class="toc-text">{{ s.title }}</span></a></li>{% endfor %}
+      </ol>
+      {% endif %}
+    </li>
+    {% endfor %}
+  </ol>
+  {% if bonuses %}
+  <h2 class="toc-group">{{ labels.bonuses }}</h2>
+  <ol class="toc-list">
+    {% for b in bonuses %}
+    <li class="toc-chapter"><a href="#{{ b.anchor }}"><span class="toc-num">B{{ b.number }}</span><span class="toc-text">{{ b.title }}</span></a></li>
+    {% endfor %}
+  </ol>
+  {% endif %}
+</section>
+
+{% for c in chapters %}
+<section class="chapter" id="{{ c.anchor }}">
+  <header class="chapter-head">
+    <p class="chapter-label">{{ labels.chapter }} {{ '%02d' % c.number }}</p>
+    <h1 class="chapter-title">{{ c.title }}</h1>
+    {% if c.summary %}<p class="chapter-summary">{{ c.summary }}</p>{% endif %}
+  </header>
+  <div class="prose">{% if c.html %}{{ c.html | safe }}{% else %}<p class="pending">{{ labels.pending }}</p>{% endif %}</div>
+</section>
+{% endfor %}
+
+{% for b in bonuses %}
+<section class="chapter bonus" id="{{ b.anchor }}">
+  <header class="chapter-head">
+    <p class="chapter-label">{{ labels.bonus }} {{ b.number }}</p>
+    <h1 class="chapter-title">{{ b.title }}</h1>
+    {% if b.description %}<p class="chapter-summary">{{ b.description }}</p>{% endif %}
+  </header>
+  <div class="prose">{% if b.html %}{{ b.html | safe }}{% else %}<p class="pending">{{ labels.pending }}</p>{% endif %}</div>
+</section>
+{% endfor %}
+
+</body>
+</html>
