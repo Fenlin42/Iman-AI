@@ -65,8 +65,11 @@ Ohne API-Key ausprobieren: `MOCK_AI=1` in `.env` setzen. Dann liefert die App Be
 
 Hinweise:
 
-- `APP_PASSWORD` ist auf Render Pflicht. Ohne Passwort startet die App dort nicht, weil sonst jeder mit der Adresse dein API-Guthaben verbrauchen könnte.
-- Die Projekte liegen auf einer persistenten Disk (`/data`). Die braucht einen bezahlten Tarif; `render.yaml` nutzt `starter`. Aktuelle Preise stehen bei Render.
+- `APP_PASSWORD` ist auf Render Pflicht. Ohne Passwort startet die App dort nicht, weil sonst jeder mit der Adresse sie benutzen könnte.
+- `render.yaml` nutzt den kostenlosen Tarif. Der hat keine dauerhafte Festplatte: Nach jedem Neustart (auch nach dem Einschlafen bei Inaktivität) hat der Server die Projekte vergessen.
+- Deshalb sichert die App jedes Projekt automatisch in deinem Browser und stellt es beim nächsten Öffnen wieder her. Das gilt nur für denselben Browser auf demselben Gerät. Für alles andere gibt es im Projekt „Sicherung herunterladen" und in der Übersicht „Sicherung importieren".
+- Nach längerer Pause braucht der erste Aufruf im kostenlosen Tarif etwa eine Minute.
+- Für dauerhafte Speicherung auf dem Server: bezahlten Tarif wählen und eine Disk unter `/data` einhängen.
 - Der Dienst läuft mit genau einer Instanz. Bitte nicht hochskalieren: Schreibjobs laufen im Prozess.
 
 ## Einstellungen

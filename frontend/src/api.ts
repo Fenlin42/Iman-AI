@@ -18,6 +18,37 @@ export type Project = {
 export type ProjectSummary = { id: string; name: string; step: number; title: string; updated_at: number };
 export type Status = { auth_required: boolean; authenticated: boolean; has_key: boolean; mock: boolean; model: string };
 
+/** Browser-side backups: on hosts without a persistent disk the server loses projects on restart. */
+const BACKUP = "pw-backup-";
+export const backups = {
+  save(p: Project): boolean {
+    try { localStorage.setItem(BACKUP + p.id, JSON.stringify(p)); return true; } catch { return false; }
+  },
+  remove(id: string) { try { localStorage.removeItem(BACKUP + id); } catch { /* nothing to remove */ } },
+  all(): Project[] {
+    const out: Project[] = [];
+    try {
+      for (let i = 0; i < localStorage.length; i++) {
+        const key = localStorage.key(i);
+        if (key?.startsWith(BACKUP)) out.push(JSON.parse(localStorage.getItem(key)!));
+      }
+    } catch { /* storage unavailable */ }
+    return out;
+  },
+};
+
+/** Puts back every backed-up project the server no longer has. Returns how many were restored. */
+export async function restoreLost(known: string[]): Promise<number> {
+  let n = 0;
+  for (const p of backups.all()) {
+    if (known.includes(p.id)) continue;
+    try {
+      if ((await api<{ restored: boolean }>("POST", "/projects/import", p)).restored) n++;
+    } catch { /* a broken backup must not block the others */ }
+  }
+  return n;
+}
+
 export class ApiError extends Error {
   constructor(public status: number, message: string) { super(message); }
 }

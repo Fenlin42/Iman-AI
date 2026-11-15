@@ -145,6 +145,38 @@ def create_project(body: NewProject):
     return db.create_project(body.name.strip(), body.language if body.language in ("de", "en") else "de")
 
 
+MAX_BACKUP_CHARS = 5_000_000
+
+
+@app.post("/api/projects/import")
+async def import_project(request: Request):
+    """Restore a project from a backup (the JSON this API returns for a project)."""
+    raw = await request.body()
+    if len(raw) > MAX_BACKUP_CHARS:
+        raise HTTPException(413, "Die Sicherung ist zu gross.")
+    try:
+        data = json.loads(raw)
+        pid, name = data["id"], data["name"]
+        if not (isinstance(pid, str) and re.fullmatch(r"[0-9a-f]{12}", pid) and isinstance(name, str) and name.strip()):
+            raise ValueError
+        contents = {}
+        for item_id, item in (data.get("contents") or {}).items():
+            text = item.get("markdown", "")
+            if not isinstance(text, str) or not re.fullmatch(r"[0-9a-f]{12}", item_id):
+                raise ValueError
+            contents[item_id] = {"markdown": text, "status": "done" if text.strip() else "pending"}
+        state = {k: v for k, v in data.items() if k not in ("id", "name", "contents", "generating")}
+        if state.get("language") not in ("de", "en") or not isinstance(state.get("references", []), list):
+            raise ValueError
+        state["step"] = min(max(int(state.get("step", 1)), 1), 5)
+        if state.get("charter") is not None:
+            Charter.model_validate(state["charter"])
+    except (ValueError, KeyError, TypeError, AttributeError):
+        raise HTTPException(422, "Das ist keine gueltige ProduktWerk-Sicherung.")
+    restored = db.import_project(pid, name.strip()[:120], state, contents)
+    return {"id": pid, "restored": restored}
+
+
 @app.get("/api/projects/{pid}")
 def get_project(pid: str):
     return _project(pid)

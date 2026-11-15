@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useState } from "react";
-import { api, type Project, type ProjectSummary, type Status } from "./api";
+import { api, backups, type Project, type ProjectSummary, restoreLost, type Status } from "./api";
 import { Busy, ErrorNote, ModeContext, useAction } from "./ui";
 import Step1 from "./steps/Step1";
 import Step2 from "./steps/Step2";
@@ -113,8 +113,22 @@ function ProjectList({ onOpen }: { onOpen: (id: string) => void }) {
   const [name, setName] = useState("");
   const [language, setLanguage] = useState("de");
   const { busy, error, run } = useAction();
-  const load = useCallback(() => run(async () => setProjects(await api("GET", "/projects"))), [run]);
+  const [restored, setRestored] = useState(0);
+  const load = useCallback(() => run(async () => {
+    let list = await api<ProjectSummary[]>("GET", "/projects");
+    const n = await restoreLost(list.map((p) => p.id));
+    if (n) { setRestored(n); list = await api<ProjectSummary[]>("GET", "/projects"); }
+    setProjects(list);
+  }), [run]);
   useEffect(() => { load(); }, [load]);
+
+  const importFile = (file: File) => run(async () => {
+    let data: unknown;
+    try { data = JSON.parse(await file.text()); } catch { throw new Error("Die Datei ist keine gültige Sicherung."); }
+    const res = await api<{ id: string; restored: boolean }>("POST", "/projects/import", data);
+    if (!res.restored) throw new Error("Dieses Projekt ist bereits vorhanden.");
+    await load();
+  });
 
   return (
     <div className="mx-auto max-w-3xl">
@@ -138,9 +152,19 @@ function ProjectList({ onOpen }: { onOpen: (id: string) => void }) {
         </div>
         <button className="btn-primary" disabled={busy || !name.trim()}>Projekt anlegen</button>
       </form>
-      <div className="mt-3"><ErrorNote message={error} /></div>
+      <div className="mt-3 space-y-2">
+        <ErrorNote message={error} />
+        {restored > 0 && <p role="status" className="rounded-lg border border-emerald-200 bg-emerald-50 px-3 py-2 text-sm text-emerald-800">
+          {restored === 1 ? "1 Projekt wurde" : `${restored} Projekte wurden`} aus der Sicherung in diesem Browser wiederhergestellt.</p>}
+      </div>
+      <div className="mt-4 flex justify-end">
+        <label className="btn-ghost cursor-pointer">
+          Sicherung importieren
+          <input type="file" accept="application/json,.json" className="sr-only" onChange={(e) => { const f = e.target.files?.[0]; if (f) importFile(f); e.target.value = ""; }} />
+        </label>
+      </div>
 
-      <ul className="mt-6 space-y-3">
+      <ul className="mt-2 space-y-3">
         {projects?.length === 0 && <li className="rounded-xl border border-dashed border-slate-300 p-8 text-center text-slate-500">Noch keine Projekte. Lege oben dein erstes an.</li>}
         {projects?.map((p) => (
           <li key={p.id} className="card flex items-center justify-between gap-4 p-4">
@@ -152,7 +176,7 @@ function ProjectList({ onOpen }: { onOpen: (id: string) => void }) {
             </button>
             <button className="btn-secondary" onClick={() => onOpen(p.id)}>Öffnen</button>
             <button className="btn-danger" aria-label={`${p.name} löschen`} onClick={() => {
-              if (confirm(`Projekt „${p.name}" mit allen Texten endgültig löschen?`)) run(async () => { await api("DELETE", `/projects/${p.id}`); await load(); });
+              if (confirm(`Projekt „${p.name}" mit allen Texten endgültig löschen?`)) run(async () => { await api("DELETE", `/projects/${p.id}`); backups.remove(p.id); await load(); });
             }}>Löschen</button>
           </li>
         ))}
@@ -168,9 +192,31 @@ function Workspace({ id, onBack }: { id: string; onBack: () => void }) {
   const [view, setView] = useState(1);
   const [error, setError] = useState("");
 
+  const [unsaved, setUnsaved] = useState(false);
+
   useEffect(() => {
-    api<Project>("GET", `/projects/${id}`).then((p) => { setProject(p); setView(p.step); }).catch((e) => setError(e.message));
+    (async () => {
+      let p: Project;
+      try {
+        p = await api<Project>("GET", `/projects/${id}`);
+      } catch (e) {
+        // The server may have lost it (restart without a disk): put the browser backup back.
+        await restoreLost([]);
+        p = await api<Project>("GET", `/projects/${id}`).catch(() => { throw e; });
+      }
+      setProject(p);
+      setView(p.step);
+    })().catch((e) => setError(e.message));
   }, [id]);
+
+  useEffect(() => { if (project) setUnsaved(!backups.save(project)); }, [project]);
+
+  const download = () => {
+    if (!project) return;
+    const url = URL.createObjectURL(new Blob([JSON.stringify(project)], { type: "application/json" }));
+    Object.assign(document.createElement("a"), { href: url, download: `${project.name.replace(/[^\w-]+/g, "-")}-sicherung.json` }).click();
+    URL.revokeObjectURL(url);
+  };
 
   if (error) return <div className="space-y-4"><ErrorNote message={error} /><button className="btn-secondary" onClick={onBack}>Zur Übersicht</button></div>;
   if (!project) return <Busy>Lädt Projekt</Busy>;
@@ -189,7 +235,10 @@ function Workspace({ id, onBack }: { id: string; onBack: () => void }) {
         <button className="font-medium text-brand-600 hover:underline" onClick={onBack}>Alle Projekte</button>
         <span>/</span>
         <span className="font-medium text-slate-800">{project.name}</span>
+        <button className="ml-auto font-medium text-brand-600 hover:underline" onClick={download}>Sicherung herunterladen</button>
       </div>
+      {unsaved && <p role="alert" className="mb-4 rounded-lg border border-amber-200 bg-amber-50 px-3 py-2 text-sm text-amber-900">
+        Die automatische Sicherung in diesem Browser ist fehlgeschlagen (Speicher voll oder blockiert). Lade bitte regelmäßig eine Sicherung herunter.</p>}
       <nav aria-label="Schritte" className="mb-8 overflow-x-auto">
         <ol className="flex min-w-max gap-2">
           {STEPS.map((label, i) => {

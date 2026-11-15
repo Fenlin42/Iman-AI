@@ -18,4 +18,4 @@ COPY --from=web /web/dist frontend/dist
 ENV DATA_DIR=/data PORT=8000
 EXPOSE 8000
 # One worker on purpose: writing jobs live in this process.
-CMD ["sh", "-c", "uvicorn backend.main:app --host 0.0.0.0 --port ${PORT}"]
+CMD ["sh", "-c", "uvicorn backend.main:app --host 0.0.0.0 --port ${PORT} --timeout-graceful-shutdown 5"]

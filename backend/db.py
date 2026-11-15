@@ -97,6 +97,19 @@ def update_state(pid: str, **changes) -> dict:
     return get_project(pid)
 
 
+def import_project(pid: str, name: str, state: dict, contents: dict) -> bool:
+    """Restore a project from a backup. Returns False (and changes nothing) if the id already exists."""
+    now = time.time()
+    with connect() as c:
+        if c.execute("SELECT 1 FROM projects WHERE id=?", (pid,)).fetchone():
+            return False
+        c.execute("INSERT INTO projects VALUES (?,?,?,?,?)", (pid, name, json.dumps(state), now, now))
+        for item_id, item in contents.items():
+            c.execute("INSERT INTO contents VALUES (?,?,?,?,?,?)",
+                      (pid, item_id, item["markdown"], item["status"], "", now))
+    return True
+
+
 def rename_project(pid: str, name: str):
     with connect() as c:
         c.execute("UPDATE projects SET name=?, updated_at=? WHERE id=?", (name, time.time(), pid))

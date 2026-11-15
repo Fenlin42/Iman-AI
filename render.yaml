@@ -1,14 +1,14 @@
-# Render Blueprint: one web service with a persistent disk for the SQLite database.
+# Render Blueprint for the free plan.
+# Free services have no persistent disk: the server forgets projects on every restart
+# (also after it sleeps from inactivity). The app therefore keeps a backup of each
+# project in your browser and restores it automatically.
+# For server-side persistence switch to a paid plan and add a disk mounted at /data.
 services:
   - type: web
     name: produktwerk
     runtime: docker
-    plan: starter
+    plan: free
     healthCheckPath: /api/status
-    disk:
-      name: produktwerk-data
-      mountPath: /data
-      sizeGB: 1
     envVars:
       - key: ANTHROPIC_API_KEY
         sync: false

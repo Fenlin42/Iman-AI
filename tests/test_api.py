@@ -161,3 +161,23 @@ def test_copy_mode(client):
     assert p["contents"][ids[0]]["markdown"].startswith("## Erster Teil")
     prompt = client.post(f"{base}/prompt", json={"kind": "write", "item_id": ids[1], "instruction": "kurz"}).json()["prompt"]
     assert "EINZIGARTIG-123" in prompt and "kurz" in prompt and p["charter"]["chapters"][1]["title"] in prompt
+
+
+def test_backup_restores_lost_project(client):
+    pid, p = build_to_charter(client)
+    ids = [c["id"] for c in p["charter"]["chapters"]]
+    backup = client.put(f"/api/projects/{pid}/contents/{ids[0]}", json={"markdown": "## Gesichert\n\nText."}).json()
+
+    assert client.post("/api/projects/import", json=backup).json() == {"id": pid, "restored": False}  # still there
+    client.delete(f"/api/projects/{pid}")  # stands in for a wiped disk
+    assert client.get(f"/api/projects/{pid}").status_code == 404
+    assert client.post("/api/projects/import", json=backup).json() == {"id": pid, "restored": True}
+
+    restored = client.get(f"/api/projects/{pid}").json()
+    for key in ("name", "uvz", "concept", "transformation", "references", "charter"):
+        assert restored[key] == backup[key]
+    assert restored["contents"][ids[0]]["markdown"].startswith("## Gesichert")
+    assert client.get(f"/api/projects/{pid}/pdf").status_code == 200
+
+    for bad in ({}, {"id": "../etc", "name": "x"}, {"id": pid, "name": "x", "language": "de", "charter": {"title": ""}}):
+        assert client.post("/api/projects/import", json=bad).status_code == 422
