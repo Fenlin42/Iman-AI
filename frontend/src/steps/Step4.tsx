@@ -1,7 +1,7 @@
 import { useEffect, useState } from "react";
 import { api, type Charter, type Project } from "../api";
 import type { StepProps } from "../App";
-import { Busy, ErrorNote, Footer, StepHeader, useAction } from "../ui";
+import { Busy, ErrorNote, Footer, ManualBox, StepHeader, useAction, useManual } from "../ui";
 
 function move<T>(list: T[], from: number, to: number): T[] {
   if (to < 0 || to >= list.length) return list;
@@ -15,12 +15,15 @@ export default function Step4({ project, setProject, next }: StepProps) {
   const [dirty, setDirty] = useState(false);
   const gen = useAction();
   const save = useAction();
+  const manual = useManual();
+  const [redo, setRedo] = useState(false);
   useEffect(() => { setDraft(project.charter); setDirty(false); }, [project.charter]);
 
   const edit = (changes: Partial<Charter>) => { setDraft((d) => (d ? { ...d, ...changes } : d)); setDirty(true); };
   const hasText = Object.values(project.contents).some((c) => c.markdown);
 
   const generate = () => {
+    if (manual) { setRedo((r) => !r); return; }
     if (project.charter && !confirm(hasText
       ? "Die Struktur neu zu generieren verwirft die aktuelle Struktur und alle bereits geschriebenen Texte. Fortfahren?"
       : "Die aktuelle Struktur wird ersetzt. Fortfahren?")) return;
@@ -35,14 +38,23 @@ export default function Step4({ project, setProject, next }: StepProps) {
   return (
     <section>
       <StepHeader title="Product Charter und Struktur" lead="Titel, Preis und Inhaltsverzeichnis. Passe alles an, bevor geschrieben wird: Kapitel umbenennen, verschieben, ergänzen oder löschen.">
-        <button className={draft ? "btn-secondary" : "btn-primary"} disabled={gen.busy || project.generating} onClick={generate}>
-          {gen.busy ? <Busy>Entwerfe Struktur</Busy> : draft ? "Neu generieren" : "Struktur generieren"}
-        </button>
+        {(!manual || draft) && (
+          <button className={draft ? "btn-secondary" : "btn-primary"} disabled={gen.busy || project.generating} onClick={generate}>
+            {gen.busy ? <Busy>Entwerfe Struktur</Busy> : draft ? "Neu generieren" : "Struktur generieren"}
+          </button>
+        )}
       </StepHeader>
       <ErrorNote message={gen.error} />
+      {manual && (!draft || redo) && !project.generating && (
+        <div className="mb-6">
+          <ManualBox title={draft ? "Struktur neu erstellen (ersetzt die aktuelle Struktur und bereits geschriebene Texte)" : "Titel, Kapitel und Boni entwerfen"}
+            getPrompt={async () => (await api<{ prompt: string }>("POST", `/projects/${project.id}/prompt`, { kind: "charter" })).prompt}
+            onSubmit={async (answer) => { setProject(await api<Project>("POST", `/projects/${project.id}/charter`, { manual: answer })); setRedo(false); }} />
+        </div>
+      )}
       {project.generating && <p className="mb-4 rounded-lg bg-amber-50 px-3 py-2 text-sm text-amber-900">Gerade wird geschrieben. Die Struktur kann erst danach geändert werden.</p>}
 
-      {!draft && !gen.busy && <p className="rounded-xl border border-dashed border-slate-300 p-8 text-center text-slate-500">Noch keine Struktur. Klicke auf „Struktur generieren".</p>}
+      {!draft && !gen.busy && !manual && <p className="rounded-xl border border-dashed border-slate-300 p-8 text-center text-slate-500">Noch keine Struktur. Klicke auf „Struktur generieren".</p>}
 
       {draft && (
         <fieldset disabled={project.generating} className="space-y-6">

@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import { api, type Content, type Project } from "../api";
 import type { StepProps } from "../App";
-import { Busy, ErrorNote, StepHeader, useAction } from "../ui";
+import { Busy, ErrorNote, ManualBox, StepHeader, useAction, useManual } from "../ui";
 
 const ACCENTS = [
   { id: "indigo", color: "#4338ca", name: "Indigo" },
@@ -36,6 +36,7 @@ export default function Step5({ project, setProject }: StepProps) {
   const act = useAction();
   const pdf = useAction();
   const liveBox = useRef<HTMLPreElement>(null);
+  const manual = useManual();
 
   const refresh = useCallback(async () => setProject(await api<Project>("GET", `/projects/${pid}`)), [pid, setProject]);
 
@@ -108,6 +109,8 @@ export default function Step5({ project, setProject }: StepProps) {
             <span className="font-medium text-brand-700"><Busy>Schreibt gerade. Du kannst die Seite offen lassen oder später zurückkommen.</Busy></span>
             <button className="btn-secondary" onClick={() => act.run(async () => setProject(await api<Project>("POST", `/projects/${pid}/cancel`)))}>Abbrechen</button>
           </>
+        ) : !allDone && manual ? (
+          <span className="rounded-lg bg-brand-50 px-3 py-2 text-sm font-medium text-brand-700">Schreibe die Teile der Reihe nach: Jeder Prompt enthält die schon fertigen Teile, damit alles zusammenpasst.</span>
         ) : !allDone ? (
           <button className="btn-primary" disabled={act.busy} onClick={() => generate()}>
             {done === 0 ? "Komplettes Produkt schreiben" : `Fehlende ${items.length - done} Teile schreiben`}
@@ -182,10 +185,24 @@ export default function Step5({ project, setProject }: StepProps) {
                 <label className="label" htmlFor="instr">Wunsch für diesen Teil (optional)</label>
                 <div className="flex flex-wrap gap-2">
                   <input id="instr" className="input min-w-0 flex-1" placeholder="z. B. mehr Beispiele für Einzelpraxen, kürzer, konkretere Skripte" value={instruction} onChange={(e) => setInstruction(e.target.value)} />
-                  <button className="btn-secondary" disabled={act.busy} onClick={() => {
+                  {!manual && <button className="btn-secondary" disabled={act.busy} onClick={() => {
                     if (!content(current.id).markdown || confirm("Der aktuelle Text dieses Teils wird ersetzt. Fortfahren?")) generate([current.id], instruction).then(() => setInstruction(""));
-                  }}>{content(current.id).markdown ? "Neu schreiben" : "Diesen Teil schreiben"}</button>
+                  }}>{content(current.id).markdown ? "Neu schreiben" : "Diesen Teil schreiben"}</button>}
                 </div>
+                {manual && (
+                  <div className="mt-3">
+                    <ManualBox key={current.id} title={`${current.label} ${content(current.id).markdown ? "neu schreiben (ersetzt den aktuellen Text)" : "schreiben"}`}
+                      submitLabel="Text übernehmen"
+                      getPrompt={async () => (await api<{ prompt: string }>("POST", `/projects/${pid}/prompt`, { kind: "write", item_id: current.id, instruction })).prompt}
+                      onSubmit={async (answer) => {
+                        const p = await api<Project>("PUT", `/projects/${pid}/contents/${current.id}`, { markdown: answer });
+                        setProject(p);
+                        setInstruction("");
+                        const nextOpen = items.find((i) => i.id !== current.id && p.contents[i.id]?.status !== "done");
+                        if (nextOpen) setSelected(nextOpen.id);
+                      }} />
+                  </div>
+                )}
               </div>
             )}
           </div>

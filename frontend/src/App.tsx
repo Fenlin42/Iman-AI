@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useState } from "react";
 import { api, type Project, type ProjectSummary, type Status } from "./api";
-import { Busy, ErrorNote, useAction } from "./ui";
+import { Busy, ErrorNote, ModeContext, useAction } from "./ui";
 import Step1 from "./steps/Step1";
 import Step2 from "./steps/Step2";
 import Step3 from "./steps/Step3";
@@ -24,6 +24,7 @@ export default function App() {
   const [status, setStatus] = useState<Status | null>(null);
   const [failed, setFailed] = useState("");
   const [projectId, openProject] = useHashProject();
+  const [choice, setChoice] = useState(() => { try { return localStorage.getItem("pw-mode"); } catch { return null; } });
 
   const loadStatus = useCallback(() => {
     api<Status>("GET", "/status").then(setStatus).catch((e) => setFailed(e.message));
@@ -38,16 +39,27 @@ export default function App() {
   if (!status) return <Shell><Busy>Lädt</Busy></Shell>;
   if (status.auth_required && !status.authenticated) return <Login onDone={loadStatus} />;
 
+  // Without an API key only copy mode can produce text.
+  const manual = !status.has_key || choice === "manual";
+  const setManual = (on: boolean) => {
+    setChoice(on ? "manual" : "api");
+    try { localStorage.setItem("pw-mode", on ? "manual" : "api"); } catch { /* preference just won't persist */ }
+  };
+
   return (
-    <Shell onHome={() => openProject(null)} status={status}>
-      {projectId
-        ? <Workspace key={projectId} id={projectId} onBack={() => openProject(null)} />
-        : <ProjectList onOpen={openProject} />}
-    </Shell>
+    <ModeContext.Provider value={manual}>
+      <Shell onHome={() => openProject(null)} status={status} manual={manual} setManual={setManual}>
+        {projectId
+          ? <Workspace key={projectId} id={projectId} onBack={() => openProject(null)} />
+          : <ProjectList onOpen={openProject} />}
+      </Shell>
+    </ModeContext.Provider>
   );
 }
 
-function Shell({ children, onHome, status }: { children: React.ReactNode; onHome?: () => void; status?: Status }) {
+function Shell({ children, onHome, status, manual, setManual }: {
+  children: React.ReactNode; onHome?: () => void; status?: Status; manual?: boolean; setManual?: (on: boolean) => void;
+}) {
   return (
     <div className="min-h-screen">
       <header className="border-b border-slate-200 bg-white">
@@ -56,13 +68,22 @@ function Shell({ children, onHome, status }: { children: React.ReactNode; onHome
             <span className="grid h-8 w-8 place-items-center rounded-lg bg-brand-600 text-sm font-black text-white">P</span>
             ProduktWerk
           </button>
-          {status?.mock && <span className="rounded-full bg-amber-100 px-3 py-1 text-xs font-semibold text-amber-800">Mock-Modus: Beispieltexte</span>}
+          <div className="flex flex-wrap items-center justify-end gap-3">
+            {status?.mock && <span className="rounded-full bg-amber-100 px-3 py-1 text-xs font-semibold text-amber-800">Mock-Modus: Beispieltexte</span>}
+            {setManual && status && (
+              <div className="flex rounded-lg border border-slate-300 bg-white p-0.5 text-sm font-semibold" role="radiogroup" aria-label="KI-Modus">
+                <button role="radio" aria-checked={!manual} disabled={!status.has_key} title={status.has_key ? "Texte kommen automatisch über die API" : "Dafür ist ein ANTHROPIC_API_KEY nötig"}
+                  onClick={() => setManual(false)} className={`rounded-md px-3 py-1.5 disabled:cursor-not-allowed disabled:opacity-40 ${!manual ? "bg-slate-900 text-white" : "text-slate-600 hover:bg-slate-100"}`}>Automatisch (API)</button>
+                <button role="radio" aria-checked={!!manual} title="Du kopierst Prompts in deinen eigenen Claude-Chat. Keine API-Kosten."
+                  onClick={() => setManual(true)} className={`rounded-md px-3 py-1.5 ${manual ? "bg-slate-900 text-white" : "text-slate-600 hover:bg-slate-100"}`}>Kopier-Modus</button>
+              </div>
+            )}
+          </div>
         </div>
       </header>
-      {status && !status.has_key && (
-        <div className="border-b border-amber-200 bg-amber-50 px-4 py-2.5 text-center text-sm text-amber-900">
-          Kein <code className="font-mono">ANTHROPIC_API_KEY</code> gesetzt. Kopiere <code className="font-mono">.env.example</code> nach{" "}
-          <code className="font-mono">.env</code>, trage den Key ein und starte die App neu.
+      {manual && (
+        <div className="border-b border-brand-100 bg-brand-50 px-4 py-2.5 text-center text-sm text-brand-700">
+          Kopier-Modus: Du kopierst pro Schritt einen Prompt in deinen Claude-Chat und fügst die Antwort hier ein. Es entstehen keine API-Kosten.
         </div>
       )}
       <main className="mx-auto max-w-6xl px-4 py-8 sm:px-6">{children}</main>

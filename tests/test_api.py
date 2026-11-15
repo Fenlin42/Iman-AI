@@ -131,3 +131,33 @@ def test_internal_urls_are_blocked():
     for url in ("http://127.0.0.1:8000/x", "http://localhost/x", "http://169.254.169.254/latest", "file:///etc/passwd"):
         with pytest.raises(references.ReferenceError):
             asyncio.run(references.fetch_url(url))
+
+
+def test_copy_mode(client):
+    import json
+    from backend import mock
+    pid = client.post("/api/projects", json={"name": "Kopie"}).json()["id"]
+    base = f"/api/projects/{pid}"
+    assert client.post(f"{base}/prompt", json={"kind": "niches", "input": ""}).status_code == 422
+    prompt = client.post(f"{base}/prompt", json={"kind": "niches", "mode": "explore", "input": "Yoga"}).json()["prompt"]
+    assert "Yoga" in prompt and "willingness_to_pay" in prompt and "```json" in prompt
+
+    fenced = lambda kind: "Hier ist es:\n```json\n" + json.dumps(mock.structured(kind)) + "\n```\nViel Erfolg!"
+    p = client.post(f"{base}/niches", json={"mode": "explore", "input": "Yoga", "manual": fenced("niches")}).json()
+    assert len(p["niches"]) == 10
+    bad = client.post(f"{base}/niches", json={"mode": "explore", "input": "Yoga", "manual": '{"niches": [{"name": "x"}]}'})
+    assert bad.status_code == 422 and "problem" in bad.json()["detail"]
+    assert client.post(f"{base}/niches", json={"mode": "explore", "input": "Yoga", "manual": "kein json"}).status_code == 422
+
+    client.post(f"{base}/uvz", json={"niche": p["niches"][0]})
+    p = client.post(f"{base}/concepts", json={"manual": fenced("concepts")}).json()
+    concept = p["concepts"][0]
+    assert concept["name"] in client.post(f"{base}/prompt", json={"kind": "transformation", "concept": concept}).json()["prompt"]
+    client.post(f"{base}/transformation", json={"concept": concept, "manual": fenced("transformation")})
+    p = client.post(f"{base}/charter", json={"manual": fenced("charter")}).json()
+    ids = [c["id"] for c in p["charter"]["chapters"]]
+
+    p = client.put(f"{base}/contents/{ids[0]}", json={"markdown": "```markdown\n## Erster Teil\n\nEINZIGARTIG-123\n```"}).json()
+    assert p["contents"][ids[0]]["markdown"].startswith("## Erster Teil")
+    prompt = client.post(f"{base}/prompt", json={"kind": "write", "item_id": ids[1], "instruction": "kurz"}).json()["prompt"]
+    assert "EINZIGARTIG-123" in prompt and "kurz" in prompt and p["charter"]["chapters"][1]["title"] in prompt

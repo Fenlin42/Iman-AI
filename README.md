@@ -10,13 +10,20 @@ Von der Nische zum verkaufsfertigen PDF in fünf Schritten:
 
 Technik: FastAPI, SQLite, React, Tailwind, WeasyPrint, Anthropic API.
 
+## Zwei Arten, die Texte zu erzeugen
+
+- **Automatisch (API):** Die App ruft die Anthropic API auf. Braucht `ANTHROPIC_API_KEY`, kostet pro Produkt API-Guthaben.
+- **Kopier-Modus:** Pro Schritt kopierst du einen fertigen Prompt in deinen eigenen Claude-Chat (z. B. mit einem Claude-Abo auf claude.ai) und fügst die Antwort in die App ein. Kostet kein API-Guthaben und braucht keinen Key. Bei zehn Kapiteln und drei Boni sind das etwa 17 Kopiervorgänge.
+
+Umschalten kannst du oben rechts. Ohne API-Key ist automatisch der Kopier-Modus aktiv.
+
 ## Einrichten
 
 ```bash
 cp .env.example .env
 ```
 
-Trage in `.env` deinen `ANTHROPIC_API_KEY` ein.
+Trage in `.env` deinen `ANTHROPIC_API_KEY` ein. Für den Kopier-Modus kannst du ihn leer lassen.
 
 ## Lokal starten mit Docker
 
@@ -53,7 +60,7 @@ Ohne API-Key ausprobieren: `MOCK_AI=1` in `.env` setzen. Dann liefert die App Be
 ## Auf Render deployen
 
 1. Bei [Render](https://dashboard.render.com) **New → Blueprint** wählen und dieses Repository verbinden. Render liest `render.yaml`.
-2. Zwei Werte eingeben, wenn Render danach fragt: `ANTHROPIC_API_KEY` und `APP_PASSWORD` (frei wählbar; damit meldest du dich an).
+2. Wenn Render nach Werten fragt: `APP_PASSWORD` eintragen (frei wählbar; damit meldest du dich an). `ANTHROPIC_API_KEY` nur, wenn du den automatischen Modus nutzen willst; sonst leer lassen.
 3. **Apply** klicken. Nach dem Build ist die App unter der angezeigten `onrender.com`-Adresse erreichbar.
 
 Hinweise:
@@ -66,7 +73,7 @@ Hinweise:
 
 | Variable | Bedeutung | Standard |
 |---|---|---|
-| `ANTHROPIC_API_KEY` | API-Key | – |
+| `ANTHROPIC_API_KEY` | API-Key, nur für den automatischen Modus | leer (Kopier-Modus) |
 | `ANTHROPIC_MODEL` | Modell für alle Schritte | `claude-opus-5-5` |
 | `APP_PASSWORD` | Passwort für die Oberfläche | leer (lokal ohne Anmeldung) |
 | `DATA_DIR` | Ordner der SQLite-Datenbank | `./data` |

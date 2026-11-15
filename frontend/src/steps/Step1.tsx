@@ -1,7 +1,7 @@
 import { useState } from "react";
 import { api, type Niche, type Project } from "../api";
 import type { StepProps } from "../App";
-import { Busy, ErrorNote, Footer, StepHeader, useAction } from "../ui";
+import { Busy, ErrorNote, Footer, ManualBox, StepHeader, useAction, useManual } from "../ui";
 
 const MODES = [
   { id: "explore", title: "Profitable Chancen finden", hint: "Du nennst Interessen, Skills oder ein grobes Thema und bekommst 10 spitze Mikro-Nischen.",
@@ -14,6 +14,7 @@ export default function Step1({ project, setProject, next }: StepProps) {
   const [mode, setMode] = useState(project.mode ?? "explore");
   const [input, setInput] = useState(project.input ?? "");
   const { busy, error, run } = useAction();
+  const manual = useManual();
   const current = MODES.find((m) => m.id === mode)!;
 
   const generate = () => run(async () => setProject(await api<Project>("POST", `/projects/${project.id}/niches`, { mode, input })));
@@ -39,12 +40,21 @@ export default function Step1({ project, setProject, next }: StepProps) {
         <label className="label" htmlFor="uvz-input">{mode === "explore" ? "Deine Interessen, Skills oder dein Thema" : "Dein Problem oder deine Produktidee"}</label>
         <textarea id="uvz-input" rows={4} className="input" placeholder={current.placeholder} value={input} onChange={(e) => setInput(e.target.value)} />
       </div>
-      <div className="mt-3 flex flex-wrap items-center gap-3">
-        <button className="btn-primary" disabled={busy || input.trim().length < 3} onClick={generate}>
-          {busy ? <Busy>Analysiere Markt</Busy> : project.niches ? "Neu generieren" : mode === "explore" ? "10 Nischen finden" : "Idee schärfen"}
-        </button>
-        {busy && <span className="text-sm text-slate-500">Das dauert meist 20 bis 60 Sekunden.</span>}
-      </div>
+      {manual ? (
+        <div className="mt-3">
+          <ManualBox title={mode === "explore" ? "10 Nischen finden" : "Idee schärfen"}
+            disabled={input.trim().length < 3} disabledHint="Bitte zuerst oben etwas eingeben."
+            getPrompt={async () => (await api<{ prompt: string }>("POST", `/projects/${project.id}/prompt`, { kind: "niches", mode, input })).prompt}
+            onSubmit={async (answer) => setProject(await api<Project>("POST", `/projects/${project.id}/niches`, { mode, input, manual: answer }))} />
+        </div>
+      ) : (
+        <div className="mt-3 flex flex-wrap items-center gap-3">
+          <button className="btn-primary" disabled={busy || input.trim().length < 3} onClick={generate}>
+            {busy ? <Busy>Analysiere Markt</Busy> : project.niches ? "Neu generieren" : mode === "explore" ? "10 Nischen finden" : "Idee schärfen"}
+          </button>
+          {busy && <span className="text-sm text-slate-500">Das dauert meist 20 bis 60 Sekunden.</span>}
+        </div>
+      )}
       <div className="mt-3"><ErrorNote message={error} /></div>
 
       {project.niches && (

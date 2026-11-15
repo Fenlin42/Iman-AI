@@ -11,7 +11,7 @@ from fastapi.responses import FileResponse, HTMLResponse, JSONResponse, Response
 from fastapi.staticfiles import StaticFiles
 from pydantic import BaseModel, Field
 
-from . import ai, config, db, jobs, prompts, references, schemas
+from . import ai, config, db, jobs, manual, prompts, references, schemas
 from .pdf import render
 
 
@@ -90,7 +90,34 @@ def _require(p: dict, *keys: str) -> None:
         raise HTTPException(409, f"Vorheriger Schritt fehlt: {', '.join(missing)}.")
 
 
-async def _ai(kind: str, p: dict, user: str, schema: dict) -> dict:
+def _spec(kind: str, p: dict, *, mode: str = "", text: str = "", concept: dict | None = None) -> tuple[str, str, dict]:
+    """(mock kind, user prompt, schema) for a structured step. One source for API and copy mode."""
+    if kind == "niches":
+        if mode == "specific":
+            return "specific", prompts.specific(text), schemas.NICHES
+        return "niches", prompts.niches(text), schemas.NICHES
+    if kind == "concepts":
+        _require(p, "uvz")
+        return kind, prompts.concepts(p["uvz"]), schemas.CONCEPTS
+    if kind == "transformation":
+        _require(p, "uvz")
+        if not concept:
+            raise HTTPException(422, "Bitte zuerst ein Konzept waehlen.")
+        return kind, prompts.transformation(p["uvz"], concept), schemas.TRANSFORMATION
+    if kind == "charter":
+        _require(p, "uvz", "concept", "transformation")
+        return kind, prompts.charter(p), schemas.CHARTER
+    raise HTTPException(422, "Unbekannter Schritt.")
+
+
+async def _ai(p: dict, spec: tuple[str, str, dict], pasted: str | None = None) -> dict:
+    """Run a structured step through the API, or take the answer the user pasted in copy mode."""
+    kind, user, schema = spec
+    if pasted is not None:
+        try:
+            return manual.parse_structured(pasted, schema)
+        except manual.ManualError as e:
+            raise HTTPException(422, str(e)) from e
     try:
         return await ai.structured(kind, prompts.system(p.get("language", "de")), user, schema)
     except ai.AIError as e:
@@ -146,6 +173,11 @@ def delete_project(pid: str):
 class NichesIn(BaseModel):
     mode: str
     input: str = Field(min_length=3, max_length=8000)
+    manual: str | None = None
+
+
+class ManualIn(BaseModel):
+    manual: str | None = None
 
 
 class UvzIn(BaseModel):
@@ -155,10 +187,7 @@ class UvzIn(BaseModel):
 @app.post("/api/projects/{pid}/niches")
 async def make_niches(pid: str, body: NichesIn):
     p = _project(pid)
-    if body.mode == "specific":
-        data = await _ai("specific", p, prompts.specific(body.input), schemas.NICHES)
-    else:
-        data = await _ai("niches", p, prompts.niches(body.input), schemas.NICHES)
+    data = await _ai(p, _spec("niches", p, mode=body.mode, text=body.input), body.manual)
     db.update_state(pid, mode=body.mode, input=body.input, niches=data["niches"])
     return _project(pid)
 
@@ -176,13 +205,13 @@ def choose_uvz(pid: str, body: UvzIn):
 
 class ConceptIn(BaseModel):
     concept: dict
+    manual: str | None = None
 
 
 @app.post("/api/projects/{pid}/concepts")
-async def make_concepts(pid: str):
+async def make_concepts(pid: str, body: ManualIn | None = None):
     p = _project(pid)
-    _require(p, "uvz")
-    data = await _ai("concepts", p, prompts.concepts(p["uvz"]), schemas.CONCEPTS)
+    data = await _ai(p, _spec("concepts", p), body.manual if body else None)
     db.update_state(pid, concepts=data["concepts"])
     return _project(pid)
 
@@ -190,8 +219,7 @@ async def make_concepts(pid: str):
 @app.post("/api/projects/{pid}/transformation")
 async def make_transformation(pid: str, body: ConceptIn):
     p = _project(pid)
-    _require(p, "uvz")
-    data = await _ai("transformation", p, prompts.transformation(p["uvz"], body.concept), schemas.TRANSFORMATION)
+    data = await _ai(p, _spec("transformation", p, concept=body.concept), body.manual)
     db.update_state(pid, concept=body.concept, transformation=data)
     return _project(pid)
 
@@ -274,12 +302,12 @@ def _save_charter(pid: str, charter: dict) -> dict:
 
 
 @app.post("/api/projects/{pid}/charter")
-async def make_charter(pid: str):
+async def make_charter(pid: str, body: ManualIn | None = None):
     p = _project(pid)
-    _require(p, "uvz", "concept", "transformation")
+    spec = _spec("charter", p)
     if p["generating"]:
         raise HTTPException(409, "Waehrend der Generierung kann die Struktur nicht neu erstellt werden.")
-    data = await _ai("charter", p, prompts.charter(p), schemas.CHARTER)
+    data = await _ai(p, spec, body.manual if body else None)
     return _save_charter(pid, data)
 
 
@@ -371,8 +399,44 @@ def put_content(pid: str, item_id: str, body: ContentIn):
         raise HTTPException(409, "Waehrend der Generierung kann nicht bearbeitet werden.")
     if item_id not in {i["id"] for i in render.items_of(p)}:
         raise HTTPException(404, "Teil nicht gefunden.")
-    db.set_content(pid, item_id, markdown=body.markdown, status="done")
+    db.set_content(pid, item_id, markdown=manual.parse_markdown(body.markdown), status="done")
     return _project(pid)
+
+
+# ---------- Copy mode: prompts to run in the user's own Claude chat ----------
+
+class PromptIn(BaseModel):
+    kind: str
+    mode: str = ""
+    input: str = Field(default="", max_length=8000)
+    concept: dict | None = None
+    item_id: str = ""
+    instruction: str = Field(default="", max_length=4000)
+
+
+@app.post("/api/projects/{pid}/prompt")
+def make_prompt(pid: str, body: PromptIn):
+    p = _project(pid)
+    system = prompts.system(p.get("language", "de"))
+    if body.kind == "write":
+        _require(p, "charter")
+        items = render.items_of(p)
+        item = next((i for i in items if i["id"] == body.item_id), None)
+        if not item:
+            raise HTTPException(404, "Teil nicht gefunden.")
+        previous = []
+        for other in items:
+            if other["id"] == item["id"]:
+                break
+            c = p["contents"].get(other["id"])
+            if c and c["status"] == "done" and c["markdown"].strip():
+                previous.append((other["title"], c["markdown"]))
+        user = prompts.write_item(p, item, previous, body.instruction.strip())
+        return {"prompt": manual.writing_prompt(system, prompts.project_context(p), user)}
+    if body.kind == "niches" and len(body.input.strip()) < 3:
+        raise HTTPException(422, "Bitte zuerst etwas eingeben.")
+    _, user, schema = _spec(body.kind, p, mode=body.mode, text=body.input, concept=body.concept)
+    return {"prompt": manual.structured_prompt(system, user, schema)}
 
 
 @app.get("/api/projects/{pid}/preview")

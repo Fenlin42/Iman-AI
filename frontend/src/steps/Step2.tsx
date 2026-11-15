@@ -1,7 +1,7 @@
 import { useState } from "react";
 import { api, type Concept, type Project, type State } from "../api";
 import type { StepProps } from "../App";
-import { Busy, ErrorNote, Footer, StepHeader, useAction } from "../ui";
+import { Busy, ErrorNote, Footer, ManualBox, StepHeader, useAction, useManual } from "../ui";
 
 function StateCard({ label, state, tone }: { label: string; state: State; tone: "before" | "after" }) {
   const c = tone === "before" ? "border-rose-200 bg-rose-50/60" : "border-emerald-200 bg-emerald-50/60";
@@ -23,12 +23,22 @@ export default function Step2({ project, setProject, next }: StepProps) {
   const concepts = useAction();
   const map = useAction();
   const [pending, setPending] = useState("");
+  const manual = useManual();
+  const [picked, setPicked] = useState<Concept | null>(null); // copy mode: concept waiting for its map
+  const [redo, setRedo] = useState(false);
+  const base = `/projects/${project.id}`;
+  const conceptBox = (
+    <ManualBox title="Fünf Produktkonzepte entwickeln"
+      getPrompt={async () => (await api<{ prompt: string }>("POST", `${base}/prompt`, { kind: "concepts" })).prompt}
+      onSubmit={async (answer) => { setProject(await api<Project>("POST", `${base}/concepts`, { manual: answer })); setRedo(false); setPicked(null); }} />
+  );
   const t = project.transformation;
 
   const loadConcepts = () => concepts.run(async () => setProject(await api<Project>("POST", `/projects/${project.id}/concepts`)));
   const choose = (concept: Concept) => {
     if (project.charter && project.concept?.name !== concept.name &&
         !confirm("Die Struktur in Schritt 4 basiert auf dem bisherigen Konzept und sollte danach neu generiert werden. Fortfahren?")) return;
+    if (manual) { setPicked(concept); return; }
     setPending(concept.name);
     map.run(async () => setProject(await api<Project>("POST", `/projects/${project.id}/transformation`, { concept }))).finally(() => setPending(""));
   };
@@ -39,7 +49,7 @@ export default function Step2({ project, setProject, next }: StepProps) {
         <div className="max-w-xs rounded-lg bg-brand-50 px-3 py-2 text-sm"><span className="label mb-0">Deine Nische</span>{project.uvz?.name}</div>
       </StepHeader>
 
-      {!project.concepts ? (
+      {!project.concepts && manual ? conceptBox : !project.concepts ? (
         <div className="card text-center">
           <p className="mb-4 text-slate-600">Lass dir fünf Produktkonzepte mit Preisempfehlung vorschlagen.</p>
           <button className="btn-primary" disabled={concepts.busy} onClick={loadConcepts}>{concepts.busy ? <Busy>Entwickle Konzepte</Busy> : "Konzepte generieren"}</button>
@@ -48,11 +58,12 @@ export default function Step2({ project, setProject, next }: StepProps) {
         <>
           <div className="mb-3 flex items-center justify-between">
             <h3 className="text-sm font-semibold uppercase tracking-wide text-slate-500">Wähle ein Konzept</h3>
-            <button className="btn-ghost" disabled={concepts.busy || map.busy} onClick={loadConcepts}>{concepts.busy ? <Busy>Lädt</Busy> : "Andere Konzepte"}</button>
+            <button className="btn-ghost" disabled={concepts.busy || map.busy} onClick={manual ? () => setRedo((r) => !r) : loadConcepts}>{concepts.busy ? <Busy>Lädt</Busy> : "Andere Konzepte"}</button>
           </div>
+          {manual && redo && <div className="mb-4">{conceptBox}</div>}
           <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
             {project.concepts.map((c, i) => {
-              const selected = project.concept?.name === c.name;
+              const selected = picked ? picked.name === c.name : project.concept?.name === c.name;
               return (
                 <button key={i} onClick={() => choose(c)} disabled={map.busy} aria-pressed={selected}
                   className={`card flex flex-col text-left transition hover:shadow-md ${selected ? "border-brand-600 ring-2 ring-brand-600" : ""}`}>
@@ -70,9 +81,16 @@ export default function Step2({ project, setProject, next }: StepProps) {
           </div>
         </>
       )}
+      {manual && picked && (
+        <div className="mt-4">
+          <ManualBox key={picked.name} title={`Transformation Map für „${picked.name}“ erstellen`}
+            getPrompt={async () => (await api<{ prompt: string }>("POST", `${base}/prompt`, { kind: "transformation", concept: picked })).prompt}
+            onSubmit={async (answer) => { setProject(await api<Project>("POST", `${base}/transformation`, { concept: picked, manual: answer })); setPicked(null); }} />
+        </div>
+      )}
       <div className="mt-3 space-y-2"><ErrorNote message={concepts.error} /><ErrorNote message={map.error} /></div>
 
-      {t && (
+      {t && !picked && (
         <div className="mt-10">
           <h3 className="mb-3 text-sm font-semibold uppercase tracking-wide text-slate-500">Vorher und Nachher</h3>
           <div className="grid gap-4 md:grid-cols-2">
