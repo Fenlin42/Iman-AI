@@ -15,4 +15,5 @@ FRONTEND_DIST = ROOT / "frontend" / "dist"
 
 
 def has_api_key() -> bool:
-    return bool(os.getenv("ANTHROPIC_API_KEY", "").strip())
+    key = os.getenv("ANTHROPIC_API_KEY", "").strip()
+    return bool(key) and not key.endswith("...")  # ignore an unfilled placeholder

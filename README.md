@@ -17,21 +17,27 @@ Technik: FastAPI, SQLite, React, Tailwind, WeasyPrint, Anthropic API.
 
 Umschalten kannst du oben rechts. Ohne API-Key ist automatisch der Kopier-Modus aktiv.
 
-## Einrichten
+## Lokal starten mit Docker (empfohlen)
+
+1. [Docker Desktop](https://www.docker.com/products/docker-desktop/) installieren und starten.
+2. Diesen Ordner öffnen und starten:
+   - **Windows:** Doppelklick auf `start.bat`
+   - **Mac:** Doppelklick auf `start.command`
+   - **oder im Terminal:**
 
 ```bash
-cp .env.example .env
+docker compose up --build -d
 ```
 
-Trage in `.env` deinen `ANTHROPIC_API_KEY` ein. Für den Kopier-Modus kannst du ihn leer lassen.
+3. Im Browser http://localhost:8000 öffnen. Der erste Start dauert ein paar Minuten.
 
-## Lokal starten mit Docker
+Die Projekte liegen im Ordner `data/` und bleiben erhalten. Beenden:
 
 ```bash
-docker compose up --build
+docker compose down
 ```
 
-Danach: http://localhost:8000
+Ohne weitere Einrichtung läuft die App im Kopier-Modus. Für den automatischen Modus `.env.example` nach `.env` kopieren, dort `ANTHROPIC_API_KEY` eintragen und neu starten.
 
 ## Lokal starten ohne Docker
 
