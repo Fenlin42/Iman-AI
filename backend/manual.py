@@ -24,13 +24,18 @@ def _skeleton(schema: dict):
     return "..."
 
 
+# A personal chat account may carry memory about the user, which pulls every answer towards the same topics.
+FRESH_NOTE = ("Work only from this message. Ignore memory, saved profile details and earlier conversations: "
+              "assume nothing about me that is not written here.")
+
+
 def structured_prompt(system: str, user: str, schema: dict) -> str:
     skeleton = json.dumps(_skeleton(schema), ensure_ascii=False, indent=2)
-    return f"{system}\n\n{user}\n\n{FORMAT_NOTE.format(skeleton=skeleton)}"
+    return f"{FRESH_NOTE}\n\n{system}\n\n{user}\n\n{FORMAT_NOTE.format(skeleton=skeleton)}"
 
 
 def writing_prompt(system: str, context: str, user: str) -> str:
-    return f"{system}\n\n{context}\n\n{user}\n\n{MARKDOWN_NOTE}"
+    return f"{FRESH_NOTE}\n\n{system}\n\n{context}\n\n{user}\n\n{MARKDOWN_NOTE}"
 
 
 def _clean(value, schema: dict, path: str):

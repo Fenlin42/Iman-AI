@@ -181,3 +181,18 @@ def test_backup_restores_lost_project(client):
 
     for bad in ({}, {"id": "../etc", "name": "x"}, {"id": pid, "name": "x", "language": "de", "charter": {"title": ""}}):
         assert client.post("/api/projects/import", json=bad).status_code == 422
+
+
+def test_market_mode_needs_no_input_and_avoids_repeats(client):
+    pid = client.post("/api/projects", json={"name": "Markt"}).json()["id"]
+    base = f"/api/projects/{pid}"
+    first = client.post(f"{base}/prompt", json={"kind": "niches", "mode": "market"}).json()["prompt"]
+    assert "no topic preference" in first and "web search" in first and "already shown" not in first
+    assert first.startswith("Work only from this message")
+
+    p = client.post(f"{base}/niches", json={"mode": "market"}).json()
+    assert len(p["niches"]) == 10 and p["niches"][0]["demand_signal"]
+    again = client.post(f"{base}/prompt", json={"kind": "niches", "mode": "market", "input": "nur DACH"}).json()["prompt"]
+    assert "already shown" in again and "- Beispiel-Nische 7" in again and "nur DACH" in again
+
+    assert client.post(f"{base}/niches", json={"mode": "explore", "input": ""}).status_code == 422

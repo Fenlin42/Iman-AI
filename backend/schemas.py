@@ -17,6 +17,7 @@ NICHE = _obj({
     "audience": S,
     "willingness_to_pay": S,
     "why_profitable": S,
+    "demand_signal": S,
 })
 NICHES = _obj({"niches": _arr(NICHE)})
 

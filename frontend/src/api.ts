@@ -1,4 +1,4 @@
-export type Niche = { name: string; problem: string; audience: string; willingness_to_pay: string; why_profitable: string };
+export type Niche = { name: string; problem: string; audience: string; willingness_to_pay: string; why_profitable: string; demand_signal?: string };
 export type Concept = { name: string; format: string; promise: string; duration: string; price: string; price_reasoning: string };
 export type State = { headline: string; situation: string; feelings: string[]; daily_reality: string };
 export type Milestone = { title: string; timeframe: string; description: string; outcome: string };

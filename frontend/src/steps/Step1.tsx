@@ -4,6 +4,8 @@ import type { StepProps } from "../App";
 import { Busy, ErrorNote, Footer, ManualBox, StepHeader, useAction, useManual } from "../ui";
 
 const MODES = [
+  { id: "market", title: "KI findet gefragte Nischen", hint: "Du gibst nichts vor. Die KI sucht quer durch alle Märkte nach Nischen, für die Menschen Geld ausgeben.",
+    placeholder: "Optional: eine Richtung oder ein Ausschluss, z. B. „nur deutschsprachiger Markt“ oder „nichts mit Krypto“" },
   { id: "explore", title: "Profitable Chancen finden", hint: "Du nennst Interessen, Skills oder ein grobes Thema und bekommst 10 spitze Mikro-Nischen.",
     placeholder: "z. B. Ich bin Physiotherapeutin, arbeite viel mit Läufern und mag Krafttraining …" },
   { id: "specific", title: "Konkrete Idee", hint: "Du hast schon ein Problem oder eine Produktidee und willst sie schärfen.",
@@ -11,11 +13,13 @@ const MODES = [
 ];
 
 export default function Step1({ project, setProject, next }: StepProps) {
-  const [mode, setMode] = useState(project.mode ?? "explore");
+  const [mode, setMode] = useState(project.mode ?? "market");
   const [input, setInput] = useState(project.input ?? "");
   const { busy, error, run } = useAction();
   const manual = useManual();
-  const current = MODES.find((m) => m.id === mode)!;
+  const current = MODES.find((m) => m.id === mode) ?? MODES[0];
+  const missing = mode !== "market" && input.trim().length < 3;
+  const action = mode === "market" ? "10 gefragte Nischen finden" : mode === "explore" ? "10 Nischen finden" : "Idee schärfen";
 
   const generate = () => run(async () => setProject(await api<Project>("POST", `/projects/${project.id}/niches`, { mode, input })));
   const choose = (niche: Niche) => {
@@ -27,7 +31,7 @@ export default function Step1({ project, setProject, next }: StepProps) {
   return (
     <section>
       <StepHeader title="Unique Value Zone finden" lead="Die Nische entscheidet, ob sich das Produkt verkauft. Je enger die Zielgruppe und je schmerzhafter das Problem, desto besser." />
-      <div className="grid gap-3 sm:grid-cols-2" role="radiogroup" aria-label="Modus">
+      <div className="grid gap-3 md:grid-cols-3" role="radiogroup" aria-label="Modus">
         {MODES.map((m) => (
           <button key={m.id} role="radio" aria-checked={mode === m.id} onClick={() => setMode(m.id)}
             className={`rounded-xl border-2 p-4 text-left transition ${mode === m.id ? "border-brand-600 bg-brand-50" : "border-slate-200 bg-white hover:border-slate-300"}`}>
@@ -37,20 +41,20 @@ export default function Step1({ project, setProject, next }: StepProps) {
         ))}
       </div>
       <div className="mt-4">
-        <label className="label" htmlFor="uvz-input">{mode === "explore" ? "Deine Interessen, Skills oder dein Thema" : "Dein Problem oder deine Produktidee"}</label>
-        <textarea id="uvz-input" rows={4} className="input" placeholder={current.placeholder} value={input} onChange={(e) => setInput(e.target.value)} />
+        <label className="label" htmlFor="uvz-input">{mode === "market" ? "Richtung (optional)" : mode === "explore" ? "Deine Interessen, Skills oder dein Thema" : "Dein Problem oder deine Produktidee"}</label>
+        <textarea id="uvz-input" rows={mode === "market" ? 2 : 4} className="input" placeholder={current.placeholder} value={input} onChange={(e) => setInput(e.target.value)} />
       </div>
       {manual ? (
         <div className="mt-3">
-          <ManualBox title={mode === "explore" ? "10 Nischen finden" : "Idee schärfen"}
-            disabled={input.trim().length < 3} disabledHint="Bitte zuerst oben etwas eingeben."
+          <ManualBox title={project.niches && mode !== "specific" ? `${action} (neue Runde ohne Wiederholungen)` : action}
+            disabled={missing} disabledHint="Bitte zuerst oben etwas eingeben."
             getPrompt={async () => (await api<{ prompt: string }>("POST", `/projects/${project.id}/prompt`, { kind: "niches", mode, input })).prompt}
             onSubmit={async (answer) => setProject(await api<Project>("POST", `/projects/${project.id}/niches`, { mode, input, manual: answer }))} />
         </div>
       ) : (
         <div className="mt-3 flex flex-wrap items-center gap-3">
-          <button className="btn-primary" disabled={busy || input.trim().length < 3} onClick={generate}>
-            {busy ? <Busy>Analysiere Markt</Busy> : project.niches ? "Neu generieren" : mode === "explore" ? "10 Nischen finden" : "Idee schärfen"}
+          <button className="btn-primary" disabled={busy || missing} onClick={generate}>
+            {busy ? <Busy>Analysiere Markt</Busy> : project.niches && mode !== "specific" ? "10 andere Nischen finden" : action}
           </button>
           {busy && <span className="text-sm text-slate-500">Das dauert meist 20 bis 60 Sekunden.</span>}
         </div>
@@ -75,6 +79,7 @@ export default function Step1({ project, setProject, next }: StepProps) {
                     <div><dt className="label mb-0">Zielgruppe</dt><dd>{n.audience}</dd></div>
                     <div><dt className="label mb-0">Zahlungsbereitschaft (Schätzung)</dt><dd>{n.willingness_to_pay}</dd></div>
                     <div><dt className="label mb-0">Warum attraktiv</dt><dd className="text-slate-600">{n.why_profitable}</dd></div>
+                    {n.demand_signal && <div><dt className="label mb-0">Beleg für Nachfrage</dt><dd className="text-slate-600">{n.demand_signal}</dd></div>}
                   </dl>
                 </button>
               );

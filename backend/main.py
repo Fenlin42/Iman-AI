@@ -93,9 +93,14 @@ def _require(p: dict, *keys: str) -> None:
 def _spec(kind: str, p: dict, *, mode: str = "", text: str = "", concept: dict | None = None) -> tuple[str, str, dict]:
     """(mock kind, user prompt, schema) for a structured step. One source for API and copy mode."""
     if kind == "niches":
+        seen = p.get("seen_niches", [])
+        if mode == "market":  # the AI picks the markets; text is an optional direction
+            return "niches", prompts.market(text, seen), schemas.NICHES
+        if len(text.strip()) < 3:
+            raise HTTPException(422, "Bitte zuerst etwas eingeben.")
         if mode == "specific":
             return "specific", prompts.specific(text), schemas.NICHES
-        return "niches", prompts.niches(text), schemas.NICHES
+        return "niches", prompts.niches(text, seen), schemas.NICHES
     if kind == "concepts":
         _require(p, "uvz")
         return kind, prompts.concepts(p["uvz"]), schemas.CONCEPTS
@@ -204,7 +209,7 @@ def delete_project(pid: str):
 
 class NichesIn(BaseModel):
     mode: str
-    input: str = Field(min_length=3, max_length=8000)
+    input: str = Field(default="", max_length=8000)
     manual: str | None = None
 
 
@@ -220,7 +225,11 @@ class UvzIn(BaseModel):
 async def make_niches(pid: str, body: NichesIn):
     p = _project(pid)
     data = await _ai(p, _spec("niches", p, mode=body.mode, text=body.input), body.manual)
-    db.update_state(pid, mode=body.mode, input=body.input, niches=data["niches"])
+    # Remember what was shown so the next round brings different niches.
+    seen = p.get("seen_niches", [])
+    if body.mode != "specific":
+        seen = (seen + [n["name"] for n in data["niches"] if n["name"] not in seen])[-60:]
+    db.update_state(pid, mode=body.mode, input=body.input, niches=data["niches"], seen_niches=seen)
     return _project(pid)
 
 
@@ -465,8 +474,6 @@ def make_prompt(pid: str, body: PromptIn):
                 previous.append((other["title"], c["markdown"]))
         user = prompts.write_item(p, item, previous, body.instruction.strip())
         return {"prompt": manual.writing_prompt(system, prompts.project_context(p), user)}
-    if body.kind == "niches" and len(body.input.strip()) < 3:
-        raise HTTPException(422, "Bitte zuerst etwas eingeben.")
     _, user, schema = _spec(body.kind, p, mode=body.mode, text=body.input, concept=body.concept)
     return {"prompt": manual.structured_prompt(system, user, schema)}
 

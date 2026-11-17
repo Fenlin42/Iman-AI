@@ -18,33 +18,69 @@ def system(language: str) -> str:
     return BASE.format(language=LANG.get(language, LANG["de"]))
 
 
-def niches(user_input: str) -> str:
+NICHE_FIELDS = """For each niche:
+- name: short label for the niche, at most 8 words
+- problem: the painful, concrete problem, as the buyer would describe it, 2-3 sentences
+- audience: who exactly has it (life situation, role, stage), 1-2 sentences
+- willingness_to_pay: an estimated price range for a digital product plus one sentence on why this group pays
+- why_profitable: what makes this niche attractive now (urgency, existing spend, weak competition), 1-2 sentences
+- demand_signal: the concrete evidence that people pay for this (existing paid products, active communities, \
+search behaviour). Name what you found or know; if it is your estimate and not something you checked, say so. \
+Do not invent numbers."""
+
+
+def _seen_block(seen: list[str]) -> str:
+    if not seen:
+        return ""
+    names = "\n".join(f"- {n}" for n in seen)
+    return f"""
+
+These niches were already shown to the creator. Do not repeat them or close variants of them; find different \
+audiences and different problems:
+{names}"""
+
+
+def market(direction: str, seen: list[str]) -> str:
+    wish = f"""
+
+The creator gave this constraint or direction. Respect it:
+<direction>
+{direction}
+</direction>""" if direction.strip() else ""
+    return f"""The creator has no topic preference and claims no special expertise. Their only criterion is demand: \
+they will make a product on any subject, as long as people want it and pay for it. Choosing the markets is your job.
+
+Find exactly 10 pocket niches: narrow, underserved micro-markets with buyers. Spread them across clearly \
+different markets (for example animals and pets, hobbies and crafts, home and garden, career and side income, \
+parenting, travel, sport, everyday technology, relationships, organisation), with at most two from the same market.
+
+Choose by these criteria:
+- People already spend money on the problem (books, courses, apps, coaching, equipment).
+- One specific, painful problem or strongly wanted result, for a clearly defined group.
+- The group can be reached online (communities, search, marketplaces).
+- Lasting demand, not a short-lived fad.
+- A carefully researched guide is useful here without the author holding credentials. Leave out topics where \
+wrong advice can seriously harm someone, such as medical treatment, legal questions or investment advice.
+
+If you have a web search tool, use it before deciding: check current demand signals such as bestseller lists, \
+marketplaces for digital products and courses, and forum or search activity, and base demand_signal on what you \
+found. If you cannot search, work from what you know and say in demand_signal that it is an estimate.{wish}{_seen_block(seen)}
+
+{NICHE_FIELDS}"""
+
+
+def niches(user_input: str, seen: list[str]) -> str:
     return f"""The creator describes their interests, skills or a rough topic:
 
 <input>
 {user_input}
 </input>
 
-Work only from the input above. Ignore any memory, past conversations or profile details you may have about \
-the person: do not assume their profession, location, hobbies or previous projects beyond what is written here. \
-Their memory tends to repeat the same few topics, and this list must not.
+Find exactly 10 pocket niches: narrow, underserved micro-markets where this creator has a credible edge and \
+where people already spend money to solve the problem. Make the 10 clearly different from each other \
+(different audiences or different problems, not rewordings).{_seen_block(seen)}
 
-Find exactly 10 pocket niches: narrow, underserved micro-markets where a creator with this input could have an \
-edge and where people already spend money to solve the problem. Make the 10 clearly different from each other \
-(different audiences or different problems, not rewordings).
-
-Diversity rules:
-- Spread the niches across at least five different life situations, price levels and kinds of problem \
-(for example a one-off fix, an ongoing routine, a career step, a health or money problem).
-- Include at least two niches that look unexpected for this input but still connect to it.
-- Do not put more than two niches in the same broad field.
-
-For each niche:
-- name: short label for the niche, at most 8 words
-- problem: the painful, concrete problem, as the buyer would describe it, 2-3 sentences
-- audience: who exactly has it (life situation, role, stage), 1-2 sentences
-- willingness_to_pay: an estimated price range for a digital product plus one sentence on why this group pays
-- why_profitable: what makes this niche attractive now (urgency, existing spend, weak competition), 1-2 sentences"""
+{NICHE_FIELDS}"""
 
 
 def specific(user_input: str) -> str:
@@ -55,12 +91,9 @@ def specific(user_input: str) -> str:
 </input>
 
 Sharpen it into exactly 1 pocket niche. Keep the creator's idea; make audience and problem more precise \
-where the input is vague. Return it as a single entry in the niches array with the fields:
-- name: short label, at most 8 words
-- problem: the painful, concrete problem, as the buyer would describe it, 2-3 sentences
-- audience: who exactly has it, 1-2 sentences
-- willingness_to_pay: an estimated price range for a digital product plus one sentence on why this group pays
-- why_profitable: what makes this attractive, 1-2 sentences"""
+where the input is vague. Return it as a single entry in the niches array.
+
+{NICHE_FIELDS}"""
 
 
 def concepts(uvz: dict) -> str:

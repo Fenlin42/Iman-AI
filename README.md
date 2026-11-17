@@ -2,7 +2,7 @@
 
 Von der Nische zum verkaufsfertigen PDF in fünf Schritten:
 
-1. **Unique Value Zone** – 10 Mikro-Nischen aus deinen Interessen oder eine konkrete Idee schärfen
+1. **Unique Value Zone** – die KI sucht selbst nach gefragten Nischen quer durch alle Märkte, oder du gibst Interessen bzw. eine konkrete Idee vor
 2. **Transformation Map** – Produktkonzepte mit Preisempfehlung, Vorher/Nachher und Meilensteine
 3. **Wissen** – eigene Notizen, Transkripte und Links als Grundlage
 4. **Struktur** – Titel, Preis, Kapitel, Unterkapitel und Boni, frei editierbar
