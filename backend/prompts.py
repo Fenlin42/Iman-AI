@@ -25,9 +25,19 @@ def niches(user_input: str) -> str:
 {user_input}
 </input>
 
-Find exactly 10 pocket niches: narrow, underserved micro-markets where this creator has a credible edge and \
-where people already spend money to solve the problem. Make the 10 clearly different from each other \
+Work only from the input above. Ignore any memory, past conversations or profile details you may have about \
+the person: do not assume their profession, location, hobbies or previous projects beyond what is written here. \
+Their memory tends to repeat the same few topics, and this list must not.
+
+Find exactly 10 pocket niches: narrow, underserved micro-markets where a creator with this input could have an \
+edge and where people already spend money to solve the problem. Make the 10 clearly different from each other \
 (different audiences or different problems, not rewordings).
+
+Diversity rules:
+- Spread the niches across at least five different life situations, price levels and kinds of problem \
+(for example a one-off fix, an ongoing routine, a career step, a health or money problem).
+- Include at least two niches that look unexpected for this input but still connect to it.
+- Do not put more than two niches in the same broad field.
 
 For each niche:
 - name: short label for the niche, at most 8 words
