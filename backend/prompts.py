@@ -6,10 +6,16 @@ LANG = {"de": "German (du-form, natural and direct)", "en": "English"}
 BASE = """You are a senior digital-product strategist and non-fiction author. You help a solo creator \
 build a paid information product (ebook, guide, action plan) that buyers finish and get results from.
 
+How the creator works (synthesis model): they do not claim to be an expert and give no advice of their own. \
+Solutions usually exist already, scattered across studies, official data and expert publications. The product's \
+value is bringing that verified knowledge into one short, usable guide and saying where each point comes from.
+
 Standards you hold:
 - Specific beats broad. Name the exact person, the exact situation, the exact result.
 - No hype, no invented statistics, no invented studies, testimonials or case-study people presented as real. \
 Illustrative examples are fine when they are clearly framed as examples.
+- No promises of healing, income or returns.
+- Short beats long: buyers pay for the transformation from A to B, not for page count.
 - Prices and willingness to pay are your reasoned estimates; phrase them as estimates.
 - Write every field of your answer in {language}."""
 
@@ -23,7 +29,9 @@ NICHE_FIELDS = """For each niche:
 - problem: the painful, concrete problem, as the buyer would describe it, 2-3 sentences
 - audience: who exactly has it (life situation, role, stage), 1-2 sentences
 - willingness_to_pay: an estimated price range for a digital product plus one sentence on why this group pays
-- why_profitable: what makes this niche attractive now (urgency, existing spend, weak competition), 1-2 sentences
+- why_profitable: what makes this niche attractive now (urgency, existing spend), 1-2 sentences
+- supply_gap: what already exists for this audience (paid products and good free material from authorities, \
+associations or companies) and why there is still room; say plainly if the market looks crowded
 - demand_signal: the concrete evidence that people pay for this (existing paid products, active communities, \
 search behaviour). Name what you found or know; if it is your estimate and not something you checked, say so. \
 Do not invent numbers."""
@@ -55,12 +63,20 @@ different markets (for example animals and pets, hobbies and crafts, home and ga
 parenting, travel, sport, everyday technology, relationships, organisation), with at most two from the same market.
 
 Choose by these criteria:
+- Pain before pleasure: the strongest sellers are problems in money, health and relationships, above all ones \
+that get worse when ignored. Look there first, without neglecting other markets.
 - People already spend money on the problem (books, courses, apps, coaching, equipment).
-- One specific, painful problem or strongly wanted result, for a clearly defined group.
+- One specific, painful problem or strongly wanted result, for a clearly defined group under personal pressure.
+- A real gap: paying demand AND weak supply. Few good products for this exact group, and no good free \
+alternative from an authority, association or software company. Many near-identical titles mean it is too late.
+- Check the language gap: a market that is full in English may still be open in German.
 - The group can be reached online (communities, search, marketplaces).
 - Lasting demand, not a short-lived fad.
-- A carefully researched guide is useful here without the author holding credentials. Leave out topics where \
-wrong advice can seriously harm someone, such as medical treatment, legal questions or investment advice.
+- Solid published sources exist (studies, official data, expert guidelines), because the product will be a \
+synthesis of them, not the author's own advice.
+- In health, money and legal topics the product informs and summarises; it makes no promise of healing or \
+returns. Leave out only what stays risky even as a summary: medication and dosing decisions, treating serious \
+illness, individual legal or tax cases, specific investment picks.
 
 If you have a web search tool, use it before deciding: check current demand signals such as bestseller lists, \
 marketplaces for digital products and courses, and forum or search activity, and base demand_signal on what you \
@@ -162,8 +178,9 @@ Write the product charter:
 - subtitle: who it is for and what they get
 - target_price: one price with currency
 - reading_time: estimated reading time for the finished product
-- chapters: 7 to 10 chapters that take the buyer through the milestones in order. Each chapter has a title, \
-a one-sentence summary of what the reader can do after it, and 3 to 6 sections (subchapter titles).
+- chapters: 5 to 7 chapters that take the buyer through the milestones in order; the finished product should \
+be a strong 20 to 30 pages, not a long book. Each chapter delivers one action or result and has a title, a \
+one-sentence summary of what the reader can do after it, and 2 to 4 sections (subchapter titles).
 - bonuses: 3 bonuses that remove a remaining obstacle (for example a checklist, a template pack, a script \
 collection). Each has a title and a one-sentence description of what it contains."""
 
@@ -176,8 +193,18 @@ make them, what good looks like, and the mistakes that typically happen at this 
 before/after. Frame invented examples as examples.
 - Where the creator's reference material covers the topic, use its methods, terms and stories. Do not \
 contradict it.
+- Sources: the product summarises what studies, official data and experts say. Build factual claims on the \
+sources in the references and name the source in the sentence or in brackets (institution or first author, \
+year). Never invent a study, a number, an author or a quotation. Write "according to X studies" only if exactly \
+that many are in the references. A factual claim you cannot tie to a reference gets the marker [PRÜFEN] right \
+after it, so the creator can check it before selling.
+- No promises of healing, income or returns. In a health, money or legal topic, state once near the start that \
+the guide summarises published knowledge and does not replace individual professional advice.
+- Every section contains at least one of: a concrete step, an example, a number with its source, a template, \
+a wording to copy. No opening platitudes, no empty motivation, no tips found in every blog, no filler sentence \
+at the end of a section.
 - Do not summarise other chapters or announce what later chapters will cover. Do not pad.
-- Aim for 1,800 to 2,800 words for a chapter and 600 to 1,200 words for a bonus.
+- Aim for 900 to 1,500 words for a chapter and 400 to 800 words for a bonus.
 
 Format (Markdown, nothing else, no preamble):
 - Do not repeat the chapter title. Start with a short opening paragraph, then use `## ` for each section and \
@@ -187,7 +214,42 @@ Format (Markdown, nothing else, no preamble):
 - Callout boxes as blockquotes whose first line is one of `> [!TIP] Title`, `> [!WARNING] Title`, \
 `> [!EXAMPLE] Title`, `> [!KEY] Title`, followed by `> ` lines with the content. Use two to four per chapter, \
 where they help.
-- End a chapter with a section that contains a checklist of what the reader should have done before moving on."""
+- End a chapter with a checklist of what the reader should have done before moving on, followed by a section \
+"Quellen" (or "Sources" in English) listing only the references actually used in this chapter, with their links. \
+Leave that section out if the chapter used none."""
+
+
+def sources(p: dict) -> str:
+    """Copy-mode research prompt: collect real, checked sources the product can stand on."""
+    return f"""I am building a short paid guide as a synthesis of existing, verified knowledge. I need the sources \
+it will stand on.
+
+Niche:
+{json.dumps(p["uvz"], ensure_ascii=False, indent=2)}
+
+Product concept:
+{json.dumps(p["concept"], ensure_ascii=False, indent=2)}
+
+Transformation the buyer goes through:
+{json.dumps(p["transformation"], ensure_ascii=False, indent=2)}
+
+Use your web search tool. If you have no web search in this chat, say so in one sentence and stop; do not \
+answer from memory.
+
+Find 8 to 15 sources that cover the milestones above. Rank evidence like this: studies and systematic reviews, \
+official data and guidelines from authorities or professional bodies, publications by named experts. Blog posts \
+and pages from people selling something on the topic are not evidence. List only sources you actually opened \
+and read in this chat; leave out anything you could not open.
+
+For each source give, in {LANG.get(p.get("language", "de"), LANG["de"])}:
+- title, authors or institution, year
+- the link
+- what it found, in 2 to 4 sentences, with the numbers it reports
+- which milestone or question of the guide it supports
+- limits worth knowing (small sample, old data, funded by a seller)
+
+Then add a short section on what is disputed or unknown, and a list of the important questions for which you \
+found no good source. Reply in Markdown, without an introduction."""
 
 
 def project_context(p: dict) -> str:

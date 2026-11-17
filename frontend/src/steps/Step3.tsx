@@ -1,7 +1,7 @@
 import { useState } from "react";
 import { api, type Project } from "../api";
 import type { StepProps } from "../App";
-import { Busy, ErrorNote, Footer, StepHeader, useAction } from "../ui";
+import { Busy, ErrorNote, Footer, ManualBox, StepHeader, useAction } from "../ui";
 
 export default function Step3({ project, setProject, next }: StepProps) {
   const [title, setTitle] = useState("");
@@ -14,7 +14,13 @@ export default function Step3({ project, setProject, next }: StepProps) {
 
   return (
     <section>
-      <StepHeader title="Dein Wissen einbringen" lead="Notizen, Transkripte, eigene Texte oder Links. Daraus übernimmt das Produkt deine Methoden und Begriffe, statt generisch zu klingen. Dieser Schritt ist optional." />
+      <StepHeader title="Quellen und Wissen" lead="Dein Produkt fasst zusammen, was Studien und Experten sagen. Dafür braucht es echte Quellen. Lass sie hier recherchieren oder füge eigene Notizen, Transkripte und Links hinzu." />
+      <div className="mb-6">
+        <ManualBox title="Echte Studien und Quellen recherchieren lassen (Websuche im Claude-Chat einschalten)" submitLabel="Als Quelle speichern"
+          getPrompt={async () => (await api<{ prompt: string }>("POST", `/projects/${project.id}/prompt`, { kind: "sources" })).prompt}
+          onSubmit={async (answer) => setProject(await api<Project>("POST", base, { type: "note", title: "Recherchierte Quellen", content: answer }))} />
+        <p className="mt-2 text-sm text-slate-600">Öffne danach zwei oder drei der Links selbst und prüfe, ob dort wirklich steht, was die Zusammenfassung behauptet. Ohne gespeicherte Quellen markiert die KI Fakten im Text mit [PRÜFEN].</p>
+      </div>
       <div className="grid gap-4 lg:grid-cols-2">
         <form className="card" onSubmit={(e) => {
           e.preventDefault();
@@ -62,7 +68,7 @@ export default function Step3({ project, setProject, next }: StepProps) {
           </li>
         ))}
       </ul>
-      <Footer><button className="btn-primary" onClick={next}>{project.references.length ? "Weiter zur Struktur" : "Ohne Referenzen weiter"}</button></Footer>
+      <Footer><button className="btn-primary" onClick={next}>{project.references.length ? "Weiter zur Struktur" : "Ohne Quellen weiter"}</button></Footer>
     </section>
   );
 }

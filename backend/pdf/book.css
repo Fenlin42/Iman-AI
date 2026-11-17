@@ -74,6 +74,7 @@ a { color: inherit; text-decoration: none; }
   font-size: 8.8pt; line-height: 1.5; white-space: pre-wrap; break-inside: avoid; margin: 0 0 4mm; }
 .prose pre code { background: none; padding: 0; }
 .prose blockquote { margin: 0 0 4mm; padding: .5mm 0 .5mm 5mm; border-left: .9mm solid var(--rule); color: var(--muted); font-style: italic; }
+mark.check { background: #fde68a; color: #7c2d12; font-weight: 700; padding: 0 1mm; border-radius: 1mm; }
 .pending { color: var(--muted); font-style: italic; }
 
 /* Task lists */

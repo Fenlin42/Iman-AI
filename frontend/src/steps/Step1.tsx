@@ -79,6 +79,7 @@ export default function Step1({ project, setProject, next }: StepProps) {
                     <div><dt className="label mb-0">Zielgruppe</dt><dd>{n.audience}</dd></div>
                     <div><dt className="label mb-0">Zahlungsbereitschaft (Schätzung)</dt><dd>{n.willingness_to_pay}</dd></div>
                     <div><dt className="label mb-0">Warum attraktiv</dt><dd className="text-slate-600">{n.why_profitable}</dd></div>
+                    {n.supply_gap && <div><dt className="label mb-0">Angebot und Lücke</dt><dd className="text-slate-600">{n.supply_gap}</dd></div>}
                     {n.demand_signal && <div><dt className="label mb-0">Beleg für Nachfrage</dt><dd className="text-slate-600">{n.demand_signal}</dd></div>}
                   </dl>
                 </button>

@@ -49,6 +49,7 @@ def markdown_to_html(text: str, anchor: str, language: str) -> tuple[str, list[d
     # Two callouts separated only by a blank line would merge into one blockquote.
     text = re.sub(r"(^>.*\n)\s*\n(?=> ?\[!)", r"\1\n<!-- -->\n\n", text, flags=re.M)
     html = md.markdown(text, extensions=["tables", "fenced_code", "sane_lists", "attr_list"])
+    html = html.replace("[PRÜFEN]", '<mark class="check">[PRÜFEN]</mark>')
     soup = BeautifulSoup(html, "html.parser")
 
     for bq in soup.find_all("blockquote"):

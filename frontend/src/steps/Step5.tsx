@@ -72,6 +72,7 @@ export default function Step5({ project, setProject }: StepProps) {
   const allDone = done === items.length && items.length > 0;
   const totalWords = items.reduce((n, i) => n + words(textOf(i.id)), 0);
   const current = items.find((i) => i.id === selected) ?? items[0];
+  const unchecked = items.reduce((n, i) => n + (textOf(i.id).match(/\[PRÜFEN\]/g)?.length ?? 0), 0);
 
   const generate = (item_ids?: string[], extra = "") => act.run(async () => {
     setProject(await api<Project>("POST", `/projects/${pid}/generate`, { item_ids: item_ids ?? null, instruction: extra }));
@@ -231,6 +232,8 @@ export default function Step5({ project, setProject }: StepProps) {
             </div>
           </div>
           <ErrorNote message={pdf.error} />
+          {unchecked > 0 && <p role="alert" className="mb-3 rounded-lg border border-amber-200 bg-amber-50 px-3 py-2 text-sm text-amber-900">
+            {unchecked === 1 ? "1 Stelle ist" : `${unchecked} Stellen sind`} mit [PRÜFEN] markiert: Dort steht eine Tatsachenbehauptung ohne Quelle. Prüfe oder streiche sie über „Text bearbeiten", bevor du das PDF verkaufst.</p>}
           <p className="mb-2 text-sm text-slate-500">So sieht dein Produkt aus. Im PDF kommen Seitenzahlen, Kopfzeilen und Seitenzahlen im Inhaltsverzeichnis dazu.</p>
           <iframe key={previewKey} title="Vorschau des Produkts" sandbox="" src={`/api/projects/${pid}/preview?v=${previewKey}`}
             className="h-[80vh] w-full rounded-xl border border-slate-300 bg-slate-200" />

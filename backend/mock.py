@@ -12,6 +12,7 @@ def structured(kind: str) -> dict:
             "audience": f"Selbststaendige in Situation {i}, die allein arbeiten.",
             "willingness_to_pay": "Geschaetzt 29-79 EUR, weil das Problem direkt Umsatz kostet.",
             "why_profitable": "Bestehende Angebote sind breit und nicht auf diese Gruppe zugeschnitten.",
+            "supply_gap": "Schaetzung: wenige Angebote genau fuer diese Gruppe, kein gutes Gratis-Material.",
             "demand_signal": "Schaetzung: Es gibt bezahlte Kurse und aktive Foren zu diesem Thema.",
         } for i in range(1, n + 1)]}
     if kind == "concepts":

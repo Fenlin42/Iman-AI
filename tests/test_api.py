@@ -196,3 +196,16 @@ def test_market_mode_needs_no_input_and_avoids_repeats(client):
     assert "already shown" in again and "- Beispiel-Nische 7" in again and "nur DACH" in again
 
     assert client.post(f"{base}/niches", json={"mode": "explore", "input": ""}).status_code == 422
+
+
+def test_synthesis_model_prompts(client):
+    pid, p = build_to_charter(client)
+    base = f"/api/projects/{pid}"
+    research = client.post(f"{base}/prompt", json={"kind": "sources"}).json()["prompt"]
+    assert "web search" in research and "actually opened" in research and p["concept"]["name"] in research
+    write = client.post(f"{base}/prompt", json={"kind": "write", "item_id": p["charter"]["chapters"][0]["id"]}).json()["prompt"]
+    assert "[PRÜFEN]" in write and "Never invent a study" in write and "synthesis model" in write
+    market = client.post(f"{base}/prompt", json={"kind": "niches", "mode": "market"}).json()["prompt"]
+    assert "money, health and relationships" in market and "supply_gap" in market
+    empty = client.post("/api/projects", json={"name": "Leer"}).json()["id"]
+    assert client.post(f"/api/projects/{empty}/prompt", json={"kind": "sources"}).status_code == 409

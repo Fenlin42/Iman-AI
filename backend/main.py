@@ -474,6 +474,9 @@ def make_prompt(pid: str, body: PromptIn):
                 previous.append((other["title"], c["markdown"]))
         user = prompts.write_item(p, item, previous, body.instruction.strip())
         return {"prompt": manual.writing_prompt(system, prompts.project_context(p), user)}
+    if body.kind == "sources":
+        _require(p, "uvz", "concept", "transformation")
+        return {"prompt": f"{manual.FRESH_NOTE}\n\n{prompts.sources(p)}"}
     _, user, schema = _spec(body.kind, p, mode=body.mode, text=body.input, concept=body.concept)
     return {"prompt": manual.structured_prompt(system, user, schema)}
 
